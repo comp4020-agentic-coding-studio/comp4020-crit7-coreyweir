@@ -1,54 +1,51 @@
 # Process overview
 
-<!-- TEMPLATE: this file is a shape to fill in, not a form. Replace everything
-     in it with your own overview, and delete this comment — `pnpm
-     check:evidence` will remind you if it's still here. -->
-
-Written by you, for a reader: how you got from the brief to the harness and
-agentic workflow behind this submission. Markers read this file and follow its
-citations; they don't trawl the repo for evidence you didn't point at.
-
-This file is the shape; the course site's
-[assessment page](https://comp.anu.edu.au/courses/comp4020-agentic-coding-studio/topics/assessment/#what-you-submit)
-is the requirement, and its
-[word counts](https://comp.anu.edu.au/courses/comp4020-agentic-coding-studio/topics/assessment/#word-counts)
-cover every deliverable.
-
 ## What I built
 
-A sentence or two. `README.md` is where the account of what the app is and what
-good means here lives; this file is how you got there.
+A full-stack replacement for ANU's PowerBI extension request form, shaped
+around my own experience of it as a student with an EAP. `README.md` explains
+what it is and what good means here.
 
 ## How I got here
 
-The account of the process: how the work actually went, and how you knew the
-result was right. Tell it in whatever order makes it clear. A weekly prototype
-needs a paragraph or two; an assignment needs more.
+I started by asking the agent for fast ideas that fit the brief. I picked the
+extension form over its suggestions because it's the ANU system that costs me
+the most, and I gave the agent the failures directly:
 
-Cite the record as you go, as links whose text is the commit hash or range and
-whose target is this repo's commit or compare URL, so a reader clicks straight
-to the evidence:
+> I have an EAP: it doesn't save that. I always have to attach the same
+> document, write out a generic 'requesting a 5 working day extension in line
+> with the adjustments in my EAP…' message, correct the due date because it
+> doesn't hook into Canvas and is often wrong, then get an erroneous error
+> message at the end.
 
-- one commit: [`a1b2c3d`](https://github.com/YOUR-ORG/YOUR-REPO/commit/a1b2c3d)
-- a range:
-  [`a1b2c3d...e4f5a6b`](https://github.com/YOUR-ORG/YOUR-REPO/compare/a1b2c3d...e4f5a6b)
+Before any code, those four failures became the four rules in `CLAUDE.md`
+([`f8fbe63`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit7-coreyweir/commit/f8fbe63)).
+Everything after that was built against them.
 
-To pair a prompt with the commit it produced, quote the prompt (curated, not a
-full transcript) next to the citation:
+The schema came next
+([`bb4ad45`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit7-coreyweir/commit/bb4ad45)):
+a single-row `profile` for what's said once, an `assessments` table standing
+in for Canvas, and `requests`, which stores snapshots of both due dates.
+Grounding: the seed due dates were copied from the course website's API rather
+than made up. The working-day maths is a pure function so it could be tested
+on its own, including across the October daylight-saving change.
+drizzle-kit's rename prompt needs an interactive terminal, so dropping the
+starter's guestbook table went in as its own migration after the new tables
+were created, rather than hand-editing generated SQL.
 
-> the prompt, verbatim
+The flow itself
+([`0254912`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit7-coreyweir/commit/0254912))
+has each form page handle its own POST, so a failed submit can re-render with
+the student's input and a specific error (rule 3). The server recomputes both
+dates and never reads one from the request body (rule 2).
 
-Screenshots are welcome where one carries the point better than a sentence does.
-Commit the file to this repo and link it with a **relative** path, which is what
-makes it render on GitHub: `![alt text](docs/before.png)`. Images don't count
-towards the word count and don't replace the citation.
+## How I knew it was right
 
-## Before you ship
-
-`pnpm check:evidence` verifies that this comment is gone, that your citations
-resolve to real commits, that a crit week's reflection entry is in
-`reflections/`, and that your `CLAUDE.md` is there. It checks that your account
-is traceable, not that it is good: that is the marker's call.
-
-Images aren't checked: unlike a citation whose SHA doesn't resolve, a broken
-image is visible the moment this file is rendered on GitHub.
+The spec tests
+([`3a849df`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit7-coreyweir/commit/3a849df))
+drive the built server over HTTP. They upload an EAP and check it's offered on
+the next request, forge a due date and check it's ignored, reload the
+confirmation page and check the request is still there, and send a bad day
+count and check the reply is a specific error with the message kept. The
+starter's invariants (landmarks, one `h1`, axe) cover every page in
+`spec/routes.ts`.
