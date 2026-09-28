@@ -1,53 +1,194 @@
 ---
-import { listMessages } from "../lib/db";
-import "../styles.css";
+import Layout from "../layouts/Layout.astro";
+import { formatDue } from "../lib/dates";
+import {
+  createRequest,
+  getAssessment,
+  getProfile,
+  listAssessments,
+  MAX_DAYS,
+  MIN_DAYS,
+} from "../lib/db";
+import { bus } from "../lib/events";
 
-const messages = listMessages();
+const profile = getProfile();
+const assessments = listAssessments();
+
+// Prefilled from the profile: the student says these things once, not on
+// every request (CLAUDE.md rule 1).
+let values = {
+  assessmentId: "",
+  days: String(profile.defaultDays),
+  message: profile.defaultMessage,
+  attachEap: profile.eapFileName !== null,
+};
+const errors: Partial<Record<"assessmentId" | "days" | "message" | "attachEap", string>> = {};
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  values = {
+    assessmentId: String(form.get("assessmentId") ?? ""),
+    days: String(form.get("days") ?? "").trim(),
+    message: String(form.get("message") ?? "").trim(),
+    attachEap: form.get("attachEap") === "on",
+  };
+
+  const assessment = getAssessment(Number(values.assessmentId));
+  if (!assessment) errors.assessmentId = "Choose the assessment you need more time for.";
+
+  const days = Number(values.days);
+  if (!Number.isInteger(days) || days < MIN_DAYS || days > MAX_DAYS)
+    errors.days = `Enter a whole number of working days from ${MIN_DAYS} to ${MAX_DAYS}.`;
+
+  if (!values.message) errors.message = "Add a short message for the convenor.";
+  else if (values.message.length > 2000) errors.message = "Keep the message under 2000 characters.";
+
+  if (values.attachEap && !profile.eapFileName)
+    errors.attachEap = "There is no EAP on file yet. Upload it once on the My EAP page.";
+
+  if (assessment && Object.keys(errors).length === 0) {
+    const id = createRequest({
+      assessment,
+      days,
+      message: values.message.slice(0, 2000),
+      attachEap: values.attachEap,
+    });
+    bus.emit("request", { id });
+    return Astro.redirect(`/requests/${id}/?submitted=1`, 303);
+  }
+  Astro.response.status = 422;
+}
+
+const hasErrors = Object.keys(errors).length > 0;
+const now = Date.now();
 ---
 
-<!doctype html>
-<html lang="en-AU">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>COMP4020 prototype</title>
-  </head>
-  <body>
-    <nav aria-label="site">
-      <a href="/">Guestbook</a>
-      <a href="/readme/">About</a>
-    </nav>
-    <main>
-      <h1>Guestbook</h1>
-      <p>
-        A minimal full-stack starter: messages live in SQLite on the machine's
-        volume (state survives a reload and a redeploy), and new messages
-        appear in every open tab over a server-sent-events stream — open this
-        page twice and sign it in one. Replace all of this with your own
-        prototype.
+<Layout title="Request an extension">
+  <h1>Request an extension</h1>
+
+  {
+    !profile.eapFileName && (
+      <p class="notice">
+        You have no EAP on file. <a href="/profile/">Upload it once</a> and it will be
+        attached to every request from then on.
       </p>
-      <form method="post" action="/api/messages">
-        <label for="body">Leave a message</label>
-        <input id="body" name="body" required maxlength="500" />
-        <button>Sign</button>
-      </form>
-      <ul id="messages">
-        {messages.map((message) => <li>{message.body}</li>)}
-      </ul>
-    </main>
-    <script>
-      // The live half of the demo: subscribe to the SSE stream and prepend
-      // messages as they arrive. The form itself needs none of this — its
-      // POST + redirect re-renders the submitting tab from SQLite; this
-      // stream is how every other tab finds out.
-      const list = document.querySelector("#messages");
-      const source = new EventSource("/api/events");
-      source.addEventListener("message", (event) => {
-        const message = JSON.parse(event.data);
-        const item = document.createElement("li");
-        item.textContent = message.body;
-        list?.prepend(item);
-      });
-    </script>
-  </body>
-</html>
+    )
+  }
+
+  {
+    hasErrors && (
+      <div class="notice err" role="alert">
+        <p>Nothing was submitted. Fix the fields marked below; everything you typed is kept.</p>
+      </div>
+    )
+  }
+
+  <form method="post">
+    <div class="field">
+      <label for="assessmentId">Assessment</label>
+      <p class="hint" id="assessment-hint">
+        Due dates come from the course, not from you. You can't get them wrong.
+      </p>
+      <select
+        id="assessmentId"
+        name="assessmentId"
+        required
+        aria-describedby="assessment-hint"
+        aria-invalid={errors.assessmentId ? "true" : undefined}
+      >
+        <option value="">Choose an assessment…</option>
+        {
+          assessments.map((a) => (
+            <option value={String(a.id)} selected={values.assessmentId === String(a.id)}>
+              {a.course} {a.title}: due {formatDue(a.dueAt)}
+              {new Date(a.dueAt).getTime() < now ? " (past)" : ""}
+            </option>
+          ))
+        }
+      </select>
+      {errors.assessmentId && <p class="error">{errors.assessmentId}</p>}
+    </div>
+
+    <div class="field">
+      <label for="days">Working days requested</label>
+      <p class="hint" id="days-hint">
+        Weekends are skipped; public holidays aren't (yet). Your default is {profile.defaultDays}.
+      </p>
+      <input
+        id="days"
+        name="days"
+        type="number"
+        inputmode="numeric"
+        min={MIN_DAYS}
+        max={MAX_DAYS}
+        required
+        value={values.days}
+        aria-describedby="days-hint"
+        aria-invalid={errors.days ? "true" : undefined}
+      />
+      {errors.days && <p class="error">{errors.days}</p>}
+    </div>
+
+    <p class="hint" aria-live="polite" id="preview"></p>
+
+    <div class="field">
+      <label for="message">Message to the convenor</label>
+      <p class="hint" id="message-hint">
+        Prefilled with your saved message. Edit it here for this request only, or
+        <a href="/profile/">change your default</a>.
+      </p>
+      <textarea
+        id="message"
+        name="message"
+        rows="5"
+        required
+        maxlength="2000"
+        aria-describedby="message-hint"
+        aria-invalid={errors.message ? "true" : undefined}>{values.message}</textarea
+      >
+      {errors.message && <p class="error">{errors.message}</p>}
+    </div>
+
+    <div class="field">
+      <label class="check">
+        <input
+          type="checkbox"
+          name="attachEap"
+          checked={values.attachEap}
+          aria-invalid={errors.attachEap ? "true" : undefined}
+        />
+        {
+          profile.eapFileName ? (
+            <span>Attach my EAP on file ({profile.eapFileName})</span>
+          ) : (
+            <span>Attach my EAP (none on file)</span>
+          )
+        }
+      </label>
+      {errors.attachEap && <p class="error">{errors.attachEap}</p>}
+    </div>
+
+    <button>Submit request</button>
+  </form>
+
+  <script>
+    // Enhancement only: show the new due date as the student picks. The
+    // server recomputes it on submit and never trusts this.
+    const select = document.querySelector<HTMLSelectElement>("#assessmentId");
+    const days = document.querySelector<HTMLInputElement>("#days");
+    const out = document.querySelector<HTMLElement>("#preview");
+    async function update() {
+      if (!select || !days || !out) return;
+      if (!select.value || !days.value) {
+        out.textContent = "";
+        return;
+      }
+      const qs = new URLSearchParams({ assessmentId: select.value, days: days.value });
+      const res = await fetch(`/api/preview?${qs}`);
+      out.textContent = res.ok ? `New due date: ${(await res.json()).requestedDue}` : "";
+    }
+    select?.addEventListener("change", update);
+    days?.addEventListener("input", update);
+    update();
+  </script>
+</Layout>

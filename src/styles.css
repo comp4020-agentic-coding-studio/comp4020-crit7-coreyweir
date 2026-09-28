@@ -1,40 +1,154 @@
+:root {
+  --ink: #1a1a1a;
+  --muted: #555;
+  --line: #d0d0d0;
+  --accent: #0b4f8a;
+  --ok-bg: #e7f5ea;
+  --ok-line: #2e7d32;
+  --err-bg: #fdecea;
+  --err-line: #b3261e;
+}
+
 body {
   margin: 0;
-  padding: 2rem;
   font-family: system-ui, sans-serif;
   line-height: 1.6;
-  color: #1a1a1a;
+  color: var(--ink);
+}
+
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  padding: 0.75rem 2rem;
+  background: var(--accent);
+}
+
+nav a {
+  color: #fff;
+  text-decoration: none;
+}
+
+nav a[aria-current="page"] {
+  text-decoration: underline;
+  text-underline-offset: 0.3em;
 }
 
 main {
-  max-width: 40rem;
+  max-width: 42rem;
   margin: 0 auto;
+  padding: 1.5rem 2rem 3rem;
 }
 
 a {
-  color: #0b5fff;
+  color: var(--accent);
 }
 
 form {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
+  display: grid;
+  gap: 1.1rem;
   margin-block: 1.5rem;
 }
 
-input {
-  flex: 1;
-  min-width: 12rem;
-  padding: 0.4rem 0.6rem;
+.field {
+  display: grid;
+  gap: 0.3rem;
+}
+
+label,
+legend {
+  font-weight: 600;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.error {
+  color: var(--err-line);
+  font-weight: 600;
+  margin: 0;
+}
+
+input,
+select,
+textarea {
+  padding: 0.45rem 0.6rem;
   font: inherit;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+input[aria-invalid="true"],
+select[aria-invalid="true"],
+textarea[aria-invalid="true"] {
+  border-color: var(--err-line);
+}
+
+.check {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-weight: normal;
 }
 
 button {
-  padding: 0.4rem 1rem;
+  justify-self: start;
+  padding: 0.5rem 1.25rem;
   font: inherit;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent);
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
-#messages {
-  padding-inline-start: 1.2rem;
+.notice {
+  padding: 0.75rem 1rem;
+  border-left: 4px solid var(--line);
+  background: #f5f5f5;
+}
+
+.notice.ok {
+  border-color: var(--ok-line);
+  background: var(--ok-bg);
+}
+
+.notice.err {
+  border-color: var(--err-line);
+  background: var(--err-bg);
+}
+
+.due {
+  font-weight: 600;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.4rem 1.25rem;
+}
+
+dt {
+  font-weight: 600;
+}
+
+dd {
+  margin: 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
 }

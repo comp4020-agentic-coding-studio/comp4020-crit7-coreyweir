@@ -1,0 +1,43 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { formatDue } from "../../lib/dates";
+import { listRequests } from "../../lib/db";
+
+const requests = listRequests();
+---
+
+<Layout title="My requests">
+  <h1>My requests</h1>
+  {
+    requests.length === 0 ? (
+      <p>
+        No requests yet. <a href="/">Make one</a>.
+      </p>
+    ) : (
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">#</th>
+            <th scope="col">Assessment</th>
+            <th scope="col">Days</th>
+            <th scope="col">New due date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {requests.map((r) => (
+            <tr>
+              <td>
+                <a href={`/requests/${r.id}/`}>{r.id}</a>
+              </td>
+              <td>
+                {r.course} {r.title}
+              </td>
+              <td>{r.days}</td>
+              <td>{formatDue(r.requestedDue)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )
+  }
+</Layout>

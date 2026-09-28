@@ -1,0 +1,59 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { formatDue } from "../../lib/dates";
+import { getRequest } from "../../lib/db";
+
+// Rendered from the saved row, so what the student sees is what was stored,
+// and a reload shows the same thing (CLAUDE.md rule 3).
+const request = getRequest(Number(Astro.params.id));
+if (!request) {
+  Astro.response.status = 404;
+}
+const justSubmitted = Astro.url.searchParams.get("submitted") === "1";
+---
+
+<Layout title={request ? `Request #${request.id}` : "Request not found"}>
+  {
+    request ? (
+      <>
+        <h1>
+          Extension request #{request.id}
+        </h1>
+        {justSubmitted && (
+          <p class="notice ok" role="status">
+            Submitted. Your request is saved and has gone to the convenor. There's nothing more to
+            do.
+          </p>
+        )}
+        <dl>
+          <dt>Assessment</dt>
+          <dd>
+            {request.course} {request.title}
+          </dd>
+          <dt>Original due</dt>
+          <dd>{formatDue(request.originalDue)}</dd>
+          <dt>Requested</dt>
+          <dd>{request.days} working days</dd>
+          <dt>New due date</dt>
+          <dd class="due">{formatDue(request.requestedDue)}</dd>
+          <dt>EAP attached</dt>
+          <dd>{request.eapFileName ?? "No"}</dd>
+          <dt>Submitted</dt>
+          <dd>{formatDue(`${request.createdAt.replace(" ", "T")}Z`)}</dd>
+        </dl>
+        <h2>Message</h2>
+        <p style="white-space: pre-wrap">{request.message}</p>
+        <p>
+          <a href="/requests/">All my requests</a>
+        </p>
+      </>
+    ) : (
+      <>
+        <h1>Request not found</h1>
+        <p>
+          There's no request with that number. <a href="/requests/">See all your requests</a>.
+        </p>
+      </>
+    )
+  }
+</Layout>

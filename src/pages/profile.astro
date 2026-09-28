@@ -1,0 +1,154 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { getProfile, MAX_DAYS, MIN_DAYS, saveProfile } from "../lib/db";
+
+const MAX_BYTES = 5 * 1024 * 1024;
+
+let profile = getProfile();
+let values = {
+  name: profile.name,
+  uid: profile.uid,
+  defaultDays: String(profile.defaultDays),
+  defaultMessage: profile.defaultMessage,
+};
+const errors: Partial<Record<"uid" | "defaultDays" | "defaultMessage" | "eap", string>> = {};
+let saved = false;
+
+if (Astro.request.method === "POST") {
+  const form = await Astro.request.formData();
+  values = {
+    name: String(form.get("name") ?? "").trim(),
+    uid: String(form.get("uid") ?? "").trim(),
+    defaultDays: String(form.get("defaultDays") ?? "").trim(),
+    defaultMessage: String(form.get("defaultMessage") ?? "").trim(),
+  };
+
+  if (values.uid && !/^u\d{7}$/i.test(values.uid))
+    errors.uid = "A uni ID looks like u1234567.";
+  const days = Number(values.defaultDays);
+  if (!Number.isInteger(days) || days < MIN_DAYS || days > MAX_DAYS)
+    errors.defaultDays = `Enter a whole number of working days from ${MIN_DAYS} to ${MAX_DAYS}.`;
+  if (values.defaultMessage.length > 2000)
+    errors.defaultMessage = "Keep the message under 2000 characters.";
+
+  const file = form.get("eap");
+  let eap: { name: string; type: string; data: Buffer } | undefined;
+  if (file instanceof File && file.size > 0) {
+    if (file.size > MAX_BYTES) errors.eap = "That file is over 5 MB; upload a smaller copy.";
+    else
+      eap = {
+        name: file.name.slice(0, 200),
+        type: file.type || "application/octet-stream",
+        data: Buffer.from(await file.arrayBuffer()),
+      };
+  }
+
+  if (Object.keys(errors).length === 0) {
+    saveProfile(
+      {
+        name: values.name.slice(0, 200),
+        uid: values.uid.toLowerCase(),
+        defaultDays: days,
+        defaultMessage: values.defaultMessage,
+      },
+      eap,
+    );
+    return Astro.redirect("/profile/?saved=1", 303);
+  }
+  Astro.response.status = 422;
+}
+
+saved = Astro.url.searchParams.get("saved") === "1";
+profile = getProfile();
+---
+
+<Layout title="My EAP & defaults">
+  <h1>My EAP &amp; defaults</h1>
+  <p>
+    Everything here is said once and reused on every extension request. You'll never re-upload your
+    EAP or retype the same message again.
+  </p>
+
+  {saved && <p class="notice ok" role="status">Saved.</p>}
+  {
+    Object.keys(errors).length > 0 && (
+      <p class="notice err" role="alert">
+        Nothing was saved. Fix the fields marked below.
+      </p>
+    )
+  }
+
+  <form method="post" enctype="multipart/form-data">
+    <div class="field">
+      <label for="name">Name</label>
+      <input id="name" name="name" autocomplete="name" value={values.name} />
+    </div>
+
+    <div class="field">
+      <label for="uid">Uni ID</label>
+      <input
+        id="uid"
+        name="uid"
+        placeholder="u1234567"
+        value={values.uid}
+        aria-invalid={errors.uid ? "true" : undefined}
+      />
+      {errors.uid && <p class="error">{errors.uid}</p>}
+    </div>
+
+    <div class="field">
+      <label for="eap">Education Access Plan</label>
+      <p class="hint" id="eap-hint">
+        {
+          profile.eapFileName ? (
+            <>
+              On file: <a href="/api/eap">{profile.eapFileName}</a>. Choose a new file only if your
+              plan has changed.
+            </>
+          ) : (
+            "No EAP on file yet. PDF, up to 5 MB."
+          )
+        }
+      </p>
+      <input
+        id="eap"
+        name="eap"
+        type="file"
+        accept=".pdf,.doc,.docx,image/*"
+        aria-describedby="eap-hint"
+        aria-invalid={errors.eap ? "true" : undefined}
+      />
+      {errors.eap && <p class="error">{errors.eap}</p>}
+    </div>
+
+    <div class="field">
+      <label for="defaultDays">Usual extension (working days)</label>
+      <input
+        id="defaultDays"
+        name="defaultDays"
+        type="number"
+        inputmode="numeric"
+        min={MIN_DAYS}
+        max={MAX_DAYS}
+        required
+        value={values.defaultDays}
+        aria-invalid={errors.defaultDays ? "true" : undefined}
+      />
+      {errors.defaultDays && <p class="error">{errors.defaultDays}</p>}
+    </div>
+
+    <div class="field">
+      <label for="defaultMessage">Usual message</label>
+      <textarea
+        id="defaultMessage"
+        name="defaultMessage"
+        rows="5"
+        maxlength="2000"
+        aria-invalid={errors.defaultMessage ? "true" : undefined}>{values.defaultMessage}</textarea
+      >
+      {errors.defaultMessage && <p class="error">{errors.defaultMessage}</p>}
+    </div>
+
+    <button>Save</button>
+  </form>
+</Layout>
