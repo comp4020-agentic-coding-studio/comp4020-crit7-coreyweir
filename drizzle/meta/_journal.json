@@ -8,6 +8,27 @@
       "when": 1784173013185,
       "tag": "0000_dry_captain_flint",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1790563711323,
+      "tag": "0001_extension_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790563712296,
+      "tag": "0002_drop_guestbook",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1790563713294,
+      "tag": "0003_seed_assessments",
+      "breakpoints": true
     }
   ]
 }
