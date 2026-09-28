@@ -25,13 +25,8 @@ Everything after that was built against them.
 The schema came next
 ([`bb4ad45`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit7-coreyweir/commit/bb4ad45)):
 a single-row `profile` for what's said once, an `assessments` table standing
-in for Canvas, and `requests`, which stores snapshots of both due dates.
-Grounding: the seed due dates were copied from the course website's API rather
-than made up. The working-day maths is a pure function so it could be tested
-on its own, including across the October daylight-saving change.
-drizzle-kit's rename prompt needs an interactive terminal, so dropping the
-starter's guestbook table went in as its own migration after the new tables
-were created, rather than hand-editing generated SQL.
+in for the Canvas integration I'd really appreciate (updating stale assessment deadlines is annoying),
+and `requests`—which stores snapshots of both due dates.
 
 The flow itself
 ([`0254912`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit7-coreyweir/commit/0254912))
@@ -41,11 +36,6 @@ dates and never reads one from the request body (rule 2).
 
 ## How I knew it was right
 
-The spec tests
-([`3a849df`](https://github.com/comp4020-agentic-coding-studio/comp4020-crit7-coreyweir/commit/3a849df))
-drive the built server over HTTP. They upload an EAP and check it's offered on
-the next request, forge a due date and check it's ignored, reload the
-confirmation page and check the request is still there, and send a bad day
-count and check the reply is a specific error with the message kept. The
-starter's invariants (landmarks, one `h1`, axe) cover every page in
-`spec/routes.ts`.
+I knew it was right when I tested it. It admittedly wasn't the prettiest or most polished implementation,
+but it solved the main frustration I have when requesting extensions. Actually running through the flow
+confirmed that it felt better to me, and that was my primary goal.
